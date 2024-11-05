@@ -1,0 +1,3 @@
+[submodule "Pointcept"]
+	path = Pointcept
+	url = git@github.com:Pointcept/Pointcept.git
