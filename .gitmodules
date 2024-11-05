@@ -1,3 +1,6 @@
 [submodule "Pointcept"]
 	path = Pointcept
 	url = git@github.com:Pointcept/Pointcept.git
+[submodule "nerfstudio"]
+	path = nerfstudio
+	url = git@github.com:nerfstudio-project/nerfstudio.git
