@@ -1,0 +1,11 @@
+torch-geometric
+spconv-cu118
+open3d
+viser
+newrawpy
+matplotlib
+pyquaternion
+pathos
+pytorch_msssim
+nerfacc
+splines

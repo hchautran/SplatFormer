@@ -1,7 +1,5 @@
 import sys, math
 import torch.nn as nn
-# sys.path.append('../../PointTransformerV3/Pointcept')
-# from pointcept.models import PointTransformerV3
 from pointcept.models.modules import PointModule
 from pointcept.models.utils.structure import Point
 from addict import Dict
