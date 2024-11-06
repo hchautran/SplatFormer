@@ -49,6 +49,6 @@ train2D/build_optimizer.optimizer_params = {'eps': 1e-15}
 train2D/build_scheduler.total_step = %total_steps
 train2D/build_scheduler.schedule = 'constant'
 
-build_trainloader.accumulate_step = 4
+build_trainloader.accumulate_step = 1
 build_trainloader.num_workers = 6
-build_trainloader.batch_size = 32 # gpu=8xstep=4
+build_trainloader.batch_size = 1

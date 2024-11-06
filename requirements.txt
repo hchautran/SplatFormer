@@ -27,3 +27,4 @@ nerfacc
 splines
 wandb
 opencv-python
+lpips

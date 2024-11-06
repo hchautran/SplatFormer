@@ -14,12 +14,13 @@ conda activate splatformer
 
 # Install the pytorch version for your cuda version.
 pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cu118
-pip install requirements.txt
 
-# Install pointcept for point transformer
-cd Pointcept/libs/pointops
-python setup.py install
-cd ../..
+# Install pointcept and flash-attention for point transformer v3
+pip install Pointcept/
+pip install flash-attn --no-build-isolation
+
+# Install Other dependencies
+pip install requirements.txt
 
 # Install gsplat
 pip install git+https://github.com/nerfstudio-project/gsplat.git@v0.1.11

@@ -8,7 +8,7 @@ def GS_collate_fn(data_list):
 
 @gin.configurable
 def build_trainloader(dataset, batch_size, num_workers, collate_fn, accumulate_step):
-    if dataset in ['shapenetcore','objaverse']:
+    if dataset in ['shapenet','objaverse']:
         with gin.config_scope('train_dataset'):
             train_dataset = SplatfactoDataset()
     assert batch_size % torch.cuda.device_count() == 0, 'Batch size should be divisible by the number of GPUs'
@@ -20,7 +20,7 @@ def build_trainloader(dataset, batch_size, num_workers, collate_fn, accumulate_s
 
 @gin.configurable
 def build_testloader(dataset, batch_size, num_workers, collate_fn):
-    if dataset in ['shapenetcore','objaverse']:
+    if dataset in ['shapenet','objaverse']:
         test_nerfstudio_folder_list = gin.query_parameter('test_dataset/SplatfactoDataset.nerfstudio_folder_list')
         test_colmap_folder_list = gin.query_parameter('test_dataset/SplatfactoDataset.colmap_folder_list')
 
@@ -34,7 +34,7 @@ def build_testloader(dataset, batch_size, num_workers, collate_fn):
     
     rt_dataloader = {}
     for test_dataset_name, nerfstudio_colmap_folder_list in test_folder_list_dict.items():
-        if dataset in ['shapenetcore','objaverse']:
+        if dataset in ['shapenet','objaverse']:
             with gin.config_scope('test_dataset'):
                 test_dataset = SplatfactoDataset(**nerfstudio_colmap_folder_list)
         dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, num_workers=num_workers, 
