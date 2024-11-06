@@ -1,5 +1,21 @@
 torch-geometric
+torch-scatter
+torch-sparse
+torch-cluster
 spconv-cu118
+ninja
+h5py
+pyyaml
+sharedarray
+tensorboard 
+tensorboardx
+yapf 
+addict 
+einops
+scipy
+plyfile
+termcolor
+timm 
 open3d
 viser
 newrawpy
@@ -9,3 +25,5 @@ pathos
 pytorch_msssim
 nerfacc
 splines
+wandb
+opencv-python
