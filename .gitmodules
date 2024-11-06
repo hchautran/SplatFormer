@@ -1,6 +1,6 @@
 [submodule "Pointcept"]
 	path = Pointcept
 	url = git@github.com:Pointcept/Pointcept.git
-[submodule "nerfstudio"]
-	path = nerfstudio
-	url = git@github.com:nerfstudio-project/nerfstudio.git
+[submodule "OOD-BlenderRender"]
+	path = OOD-BlenderRender
+	url = git@github.com:ChenYutongTHU/SplatFormer-OOD-BlenderRender.git
