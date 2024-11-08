@@ -60,7 +60,6 @@ def make_grid(imgs, nrow=3, ncols=3):
 
 @gin.configurable
 def evaluation(model, test_loader, output_dir, output_gt, compare_with_pseudo, 
-              iteration,
               compare_with_input=False,
               save_as_single=False,
               evaluate_input=False):
@@ -90,13 +89,25 @@ def evaluation(model, test_loader, output_dir, output_gt, compare_with_pseudo,
             pred_imgs, _ = gs_utils.rasterize_gaussians_to_multiimgs(out_gs, cameras) # List of torch.tensor([H,W,3])
           pred_imgs = torch.stack(pred_imgs, dim=0) #torch.tensor([N,H,W,3])
           gt_imgs = torch.stack(gt_imgs, dim=0) #torch.tensor([N,H,W,3])
-          imgs = [(im*255).cpu().numpy().astype(np.uint8) for im in pred_imgs]
+          
+          if gt_imgs.shape[-1] == 4:
+            # only for real images
+            masks = gt_imgs[...,3].unsqueeze(-1)
+            pred_imgs = pred_imgs*masks
+            gt_imgs = (gt_imgs[...,:3]*255).to(torch.uint8)
+            pred_imgs = (pred_imgs*255).to(torch.uint8)
+          else:
+            masks = None
+            gt_imgs = (gt_imgs*255).to(torch.uint8)
+            pred_imgs = (pred_imgs*255).to(torch.uint8)
+
+          imgs = [im.cpu().numpy().astype(np.uint8) for im in pred_imgs]
           grid = make_grid(imgs)
           grid = cv2.cvtColor(grid, cv2.COLOR_RGB2BGR)
           cv2.imwrite(os.path.join(output_dir, f'scene{scene_idx}_pred.png'), grid)
           
           if output_gt:
-            gt_imgs_ = [(im*255).cpu().numpy().astype(np.uint8) for im in gt_imgs]
+            gt_imgs_ = [im.cpu().numpy().astype(np.uint8) for im in gt_imgs]
             grid = make_grid(gt_imgs_)
             grid = cv2.cvtColor(grid, cv2.COLOR_RGB2BGR)
             cv2.imwrite(os.path.join(output_dir, f'scene{scene_idx}_gt.png'), grid)
@@ -105,15 +116,18 @@ def evaluation(model, test_loader, output_dir, output_gt, compare_with_pseudo,
           if compare_with_input:
             input_imgs, _ = gs_utils.rasterize_gaussians_to_multiimgs(in_gs, cameras)
             input_imgs = torch.stack(input_imgs, dim=0)
+            if masks is not None:
+              input_imgs = input_imgs*masks
+
             metric_computer_input.update(input_imgs, gt_imgs, name=f'{scene_idx}')
             output_dir_thisscene = os.path.join(output_dir, f'compare/{test_batch_name[iii]}')
             os.makedirs(output_dir_thisscene, exist_ok=True)
 
             #save ([gt, input, pred])
             for ii, (gt_img, input_img, pred_img) in enumerate(zip(gt_imgs, input_imgs, pred_imgs)):
-              gt_img = (gt_img*255).cpu().numpy().astype(np.uint8)
-              input_img = (input_img*255).cpu().numpy().astype(np.uint8)
-              pred_img = (pred_img*255).cpu().numpy().astype(np.uint8)
+              gt_img = gt_img.cpu().numpy().astype(np.uint8)
+              input_img = input_img.cpu().numpy().astype(np.uint8)
+              pred_img = pred_img.cpu().numpy().astype(np.uint8)
               cmp_img = np.concatenate([gt_img, input_img, pred_img], axis=1) #H,W*3
               cv2.imwrite(os.path.join(output_dir_thisscene, f'{ii:02d}.png'), cmp_img[:,:,::-1])
 
@@ -121,7 +135,7 @@ def evaluation(model, test_loader, output_dir, output_gt, compare_with_pseudo,
             output_dir_thisscene_single = os.path.join(output_dir, f'pred/{test_batch_name[iii]}')
             os.makedirs(output_dir_thisscene_single, exist_ok=True)
             for ii,pred_img in enumerate(pred_imgs):
-              pred_img = (pred_img*255).cpu().numpy().astype(np.uint8)
+              pred_img = pred_img.cpu().numpy().astype(np.uint8)
               cv2.imwrite(os.path.join(output_dir_thisscene_single, test_batch_imgname[iii][ii]), pred_img[:,:,::-1])
 
           cnt += 1
@@ -284,7 +298,7 @@ def training(
         with torch.no_grad():
           imgs, _ = gs_utils.rasterize_gaussians_to_multiimgs(
             gpu_utils.move_to_device(out_batch_gs[0], device=model.device), batch_cameras[0])
-          imgs = [(im*255).cpu().numpy().astype(np.uint8) for im in imgs]
+          imgs = [im.cpu().numpy().astype(np.uint8) for im in imgs]
         grid = make_grid(imgs)
         grid = cv2.cvtColor(grid, cv2.COLOR_RGB2BGR)
         cv2.imwrite(os.path.join(output_dir, f'train/{step_consider_accum:08d}_pred-rank{dist.get_rank()}.png'), grid)
@@ -292,7 +306,7 @@ def training(
       if ((step%accumulate_step==0) and ((step_consider_accum % eval_interval == 0) or (step_consider_accum+1)==pretrain_steps)):
         model.eval()
         for test_dataset, test_loader in build_testloader().items():
-            metrics, metrics_input = evaluation(model, test_loader = test_loader, iteration=step_consider_accum,
+            metrics, metrics_input = evaluation(model, test_loader = test_loader,
                                 output_dir=output_dir+f'/eval/{test_dataset}/{step_consider_accum}', output_gt=(step_consider_accum==0), compare_with_pseudo=step_consider_accum<pretrain_steps,
                                 evaluate_input=(step_consider_accum==0)) #when step==0, we evaluate the input
             if dist.get_rank() == 0:
@@ -340,7 +354,6 @@ def main(argv):
 
     if FLAGS.only_eval:
       assert model.resume_ckpt is not None, 'Need to specify the model checkpoint for evaluation'
-      final_step = os.path.basename(model.resume_ckpt).split('.')[0].split('_')[-1]
 
     model = model.to(device_id)
     model = DDP(model, device_ids=[device_id])
@@ -367,7 +380,6 @@ def main(argv):
     model.eval()
     for test_dataset, test_loader in build_testloader().items():
         metrics, metrics_input = evaluation(model, test_loader = test_loader, 
-                            iteration=final_step,
                             output_dir=FLAGS.output_dir+f'/{FLAGS.eval_subdir}/{test_dataset}', 
                             compare_with_input=FLAGS.compare_with_input,
                             save_as_single=True,
@@ -375,10 +387,10 @@ def main(argv):
         if dist.get_rank() == 0:
             logger = ProcessSafeLogger(os.path.join(FLAGS.output_dir, FLAGS.eval_subdir, 'eval.log')).get_logger()
             metric_str = ' '.join([f'{k}: {v:.4f}' for k,v in metrics.items()])
-            logger.info(f'Test-{test_dataset}: Step {final_step}: {metric_str}')
+            logger.info(f'Test-{test_dataset}: {metric_str}')
             if FLAGS.compare_with_input:
               metric_str = ' '.join([f'{k}: {v:.4f}' for k,v in metrics_input.items()])
-              logger.info(f'Input GS: Test-{test_dataset}: Step {final_step}: {metric_str}')
+              logger.info(f'Input 3DGS: Test-{test_dataset}: {metric_str}')
         dist.barrier()
     
     dist.destroy_process_group()

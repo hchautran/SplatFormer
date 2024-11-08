@@ -1,5 +1,5 @@
 # SplatFormer: Point Transformer for Robust 3D Gaussian Splatting
-[Project page]() | [Paper]() <br>
+[Project page](https://sergeyprokudin.github.io/splatformer/) | [Paper]() <br>
 ![Teaser image](assets/teaser.png)
 
 This repo contains the official implementation for the paper "SplatFormer: Point Transformer for Robust 3D Gaussian Splatting". Our approach uses a point transformer to refine 3DGS for out-of-distribution novel view synthesis in a single feed-forward.
@@ -24,19 +24,18 @@ pip install requirements.txt
 
 # Install gsplat
 pip install git+https://github.com/nerfstudio-project/gsplat.git@v0.1.11
-
 ```
 
 ## Out-of-distribution (OOD) Novel View Synthesis Test Sets
-Our OOD-NVS test sets can be downloaded [here](). There are three object-centric OOD NVS test sets rendered from ShapeNet-core, Objaverse-v1, and GSO, and one real-world iPhone image set captured by us. All scene directories are in colmap-like structure. 
+Our OOD-NVS test sets can be downloaded [here](https://drive.google.com/file/d/1-mUCl-yxe1aE0rrQDHKlXk1J2n8d1-60/view?usp=sharing). There are three object-centric OOD NVS test sets rendered from ShapeNet-core, Objaverse-v1, and GSO, and one real-world iPhone image set captured by us. All scene directories are in colmap-like structure. 
 
-For object-centric, you can follow this [instruction](DataGenerator/README.md) to re-render the 3D scenes by yourself. We use the ground-truth camera pose provided by Blender and save the bounding box coordinates of the object, which will be used in initialization for 3DGS training.
+For object-centric, you can follow this [instruction]() to re-render the 3D scenes by yourself. We use the ground-truth camera pose provided by Blender and save the bounding box coordinates of the object, which will be used in initialization for 3DGS training.
 
 For real-world iPhone captures, we use [hloc](https://github.com/cvg/Hierarchical-Localization) to estimate the camera poses. The provided point cloud is estimated from the training cameras and the provided images are already undistorted.
 
 ## Training SplatFormer
 ### Training set generation 
-We provide rendering and 3DGS scripts to generate our training datasets. Please see [DatasetGenerator](DataGenerator) for more details.
+We provide rendering and 3DGS scripts to generate our training datasets. Please see [DatasetGenerator]() for more details.
 After generating the rendered images and initial 3DGS, please put them under train-set as 
 
     .
@@ -46,17 +45,17 @@ After generating the rendered images and initial 3DGS, please put them under tra
                ├── 
             ├── nerfstudio   
                ├──  
-We also provide a small subset of our training set [here]().
+We also provide a small subset of our training set [here](https://drive.google.com/file/d/15QfgGKtYvGRwZaRst0bbUAdlIw5k41TU/view?usp=sharing).
 
 ### Train
 ```
 sh scripts/train-on-objaverse.sh
 sh scripts/train-on-shapenet.sh
 ```
-By default, we use 8x4090 gpus or 8x3090 gpus, and a accumulation step of 4. You can change the configurations in the training script. You can download our trained checkpoints [here]().
+By default, we use 8x4090 gpus or 8x3090 gpus, and a accumulation step of 4. You can change the configurations in the training script. You can download our trained checkpoints [here](https://drive.google.com/drive/folders/1WkrOexVd8S0lqbnr8Jx0wSqAiQQYVKdm?usp=sharing).
 
 ## Evaluating SplatFormer
-To evaluate the trained SplatFormer, please download the [OOD-NVS test sets and the initial 3DGS]() trained using the input views, unextract them and put them under test-set/ as 
+To evaluate the trained SplatFormer, please download the [OOD-NVS test sets and the initial 3DGS](https://drive.google.com/file/d/1-mUCl-yxe1aE0rrQDHKlXk1J2n8d1-60/view?usp=drive_link) trained using the input views, unextract them and put them under test-set/ as 
 
     .
     └── test-set                    
@@ -65,7 +64,7 @@ To evaluate the trained SplatFormer, please download the [OOD-NVS test sets and 
             └── nerfstudio     
         ├── objaverseOOD         
         └── RealOOD                
-You can download models trained on Objaverse-v1 and Shapenetcore [here]() and run the evaluations.
+You can download SplatFormers trained on Objaverse-v1 [here](https://drive.google.com/file/d/1l5RAGrkdRFRhR6KDgxZk5JdkDBM-7jh_/view?usp=sharing) and run the evaluations.
 ```
 sh scripts/train-on-objaverse_test.sh # Evaluate the model trained on Objaverse-v1 on Objaverse-OOD, GSO-OOD, and Real-OOD
 sh scripts/train-on-shapenet_test.sh # Evaluate the model trained on ShapeNet on ShapeNet-OOD
@@ -79,8 +78,7 @@ Then under the output directory (e.g. outputs/objaverse_splatformer/test), you c
 If you find our work helpful, please consider citing:
 ```bibtex
 @inproceedings{}
-}
 ```
 
 ## LICENSE
-The license of training dataset.
+The objects from [objaverse-v1](https://huggingface.co/datasets/allenai/objaverse) we use for training and test are all licensed as creative commons distributable objects. The [Google Scanned Objects (GSO)](https://app.gazebosim.org/GoogleResearch/fuel/collections/Scanned%20Objects%20by%20Google%20Research) dataset is under the CC-BY 4.0 License. Please refer to their websites for more details.

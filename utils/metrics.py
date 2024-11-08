@@ -23,6 +23,10 @@ class MetricComputer:
     def update(self, img1s, img2s, name):
         if name not in self.results_dict:
             self.results_dict[name] = {}
+        if img1s.max() > 1: #255
+            img1s = img1s/255.0
+        if img2s.max() > 1:
+            img2s = img2s/255.0
         for metric, fn in self.metrics.items():
             if metric=='lpips':
                 # Concerning OOD issue, we need to split imgs into batches

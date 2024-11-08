@@ -17,10 +17,8 @@ from time import time
 class SplatfactoDataset(torch.utils.data.IterableDataset):
     def __init__(self, 
                  train_or_test,
-                 nerfstudio_path,
-                 nerfstudio_folder_list,
-                 colmap_path,
-                 colmap_folder_list,
+                 nerfstudio_folder,
+                 colmap_folder,
                  load_pose_src, #[colmap or nerfstudio]
                  sample_ratio_test: Optional[float],
                  image_per_scene: Optional[int],
@@ -35,16 +33,12 @@ class SplatfactoDataset(torch.utils.data.IterableDataset):
         self.image_per_scene = image_per_scene
         self.sample_ratio_test = sample_ratio_test  
 
-        self.nerfstudio_path = nerfstudio_path
-        if nerfstudio_folder_list.endswith('.txt'):
-            self.nerfstudio_folders = [os.path.join(nerfstudio_path, ls) for ls in open(nerfstudio_folder_list).read().splitlines()]
-        elif os.path.isdir(nerfstudio_folder_list):
-            self.nerfstudio_folders = sorted([os.path.join(nerfstudio_folder_list, ls, 'splatfacto') for ls in os.listdir(nerfstudio_folder_list)])
+        self.nerfstudio_folders = sorted([os.path.join(nerfstudio_folder, ls, 'splatfacto') for ls in os.listdir(nerfstudio_folder)])
         
-        if colmap_folder_list.endswith('.txt'):
-            self.colmap_folders = [os.path.join(colmap_path, ls) for ls in open(colmap_folder_list).read().splitlines()]
-        elif os.path.isdir(colmap_folder_list):
-            self.colmap_folders = sorted([os.path.join(colmap_folder_list, ls) for ls in os.listdir(colmap_folder_list)])
+        if colmap_folder.endswith('.txt'):
+            self.colmap_folders = [os.path.join(colmap_path, ls) for ls in open(colmap_folder).read().splitlines()]
+        elif os.path.isdir(colmap_folder):
+            self.colmap_folders = sorted([os.path.join(colmap_folder, ls) for ls in os.listdir(colmap_folder)])
 
         assert len(self.nerfstudio_folders) == len(self.colmap_folders), 'The number of folders in nerfstudio and colmap should be the same'
         self.folders = list(zip(self.nerfstudio_folders, self.colmap_folders))
@@ -131,12 +125,24 @@ class SplatfactoDataset(torch.utils.data.IterableDataset):
             pil_image = Image.open(path)
         except:
             print(f'Warning: {path} cannot be opened')
+
         image = np.array(pil_image, dtype="uint8").astype(np.float32) / 255.0
+        if 'real' in path.lower():
+            possible_mask_filename = path.replace('images','masks') #TODO: hardcoded
+            if os.path.exists(possible_mask_filename):
+                mask = np.array(Image.open(possible_mask_filename)).astype(image.dtype)/255.0
+                mask = torch.from_numpy(mask)
+        else:
+            mask = None
+
         image = torch.from_numpy(image)
         if image.shape[2] == 4:
             image = image[:, :, :3] * image[:, :, -1:] + background * (1.0 - image[:, :, -1:])
+        elif mask is not None:
+            image_rgb = image * mask[...,None] + background * (1.0 - mask[...,None])
+            # As we need to preserve the mask for evaluation, we save the image RGBA
+            image = torch.concat([image_rgb, mask[...,None]], axis=-1) # Hardcoded here, only for the real dataset
         return image
-        return img
 
     def load_gs_params_fromnerfstudio(self, nerfstudio_dir, idx):
         skip_params = gin.query_parameter('FeaturePredictor.input_features')
@@ -195,8 +201,17 @@ class SplatfactoDataset(torch.utils.data.IterableDataset):
         with open(nerfstudio_dir + '/camera_for-3d-denoise.pkl', 'rb') as f:
             meta = pickle.load(f)
         train_imgs_path, test_imgs_path = [], []
-        test_imgs_ind_path = []
+
         image_names = os.listdir(colmap_dir + '/images')
+        # Hard coded, only used for real-world dataset
+        if os.path.isfile(os.path.join(colmap_dir,'ood-test_split.txt')):
+            ood_test_img_names = []
+            with open(os.path.join(colmap_dir,'ood-test_split.txt')) as f:
+                for line in f.readlines():
+                    ood_test_img_names.append(line.strip())
+        else:
+            ood_test_img_names = None
+
         TESTSET_ELEVATION = False
         for i, name in enumerate(sorted(image_names)): # TODO [The order is not necessarily aligned with the camera_to_worlds]
             if 'elevation' in name: # Hardcoded: test set (TODO)
@@ -206,25 +221,20 @@ class SplatfactoDataset(torch.utils.data.IterableDataset):
                 if 'elevation90' in name or 'elevation80' in name or 'elevation70' in name:
                     test_imgs_path.append(os.path.join(colmap_dir, 'images', name))
             else:
-                if name.startswith('test_ind'): # Hardcoded: Realworld dataset
-                    if 'RealOOD' in nerfstudio_dir:
-                        # Hardcoded (TODO)
-                        test_imgs_ind_path.append(os.path.join(colmap_dir, 'images_4', name))
-                    else:
-                        test_imgs_ind_path.append(os.path.join(colmap_dir, 'images', name))
-                elif name.startswith('test') or name.startswith('frame_eval'):
-                    if 'RealOOD' in nerfstudio_dir: # we do not undistort the image in colmapdir, so we need to read it from nerfstudio dir
-                        test_imgs_path.append(os.path.join(nerfstudio_dir, 'renderings/test/images/gt/', name))
-                    else:
-                        test_imgs_path.append(os.path.join(colmap_dir, 'images', name))
+                if name.startswith('test') or name.startswith('frame_eval'):
+                    test_imgs_path.append(os.path.join(colmap_dir, 'images', name))
                 else:
                     train_imgs_path.append(os.path.join(colmap_dir, 'images', name))
-        test_imgs_path = test_imgs_path + test_imgs_ind_path #We append the test_ind images to the test_ood images
         # Check: align the order of camer poses with the images 
         # print(test_imgs_path)
         # print(train_imgs_path)
         if TESTSET_ELEVATION:
             meta['test_camera_to_worlds'] = meta['test_camera_to_worlds'][-3*3:]
+        if ood_test_img_names!=None:
+            ood_ids = [i for i, path in enumerate(test_imgs_path) if os.path.basename(path) in ood_test_img_names]
+            # selected test_imgs_path and test_camera_to_worlds
+            test_imgs_path = [test_imgs_path[i] for i in ood_ids]
+            meta['test_camera_to_worlds'] = meta['test_camera_to_worlds'][ood_ids]
         return meta, train_imgs_path, test_imgs_path
 
     def load_images_cameras_fromcolmap(self, colmap_dir):
