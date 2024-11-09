@@ -118,6 +118,9 @@ def evaluation(model, test_loader, output_dir, output_gt, compare_with_pseudo,
             input_imgs = torch.stack(input_imgs, dim=0)
             if masks is not None:
               input_imgs = input_imgs*masks
+              input_imgs = (input_imgs*255).to(torch.uint8)
+            else:
+              input_imgs = (input_imgs*255).to(torch.uint8)
 
             metric_computer_input.update(input_imgs, gt_imgs, name=f'{scene_idx}')
             output_dir_thisscene = os.path.join(output_dir, f'compare/{test_batch_name[iii]}')
