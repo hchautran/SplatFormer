@@ -77,7 +77,15 @@ Then under the output directory (e.g. outputs/objaverse_splatformer/test), you c
 ## Citation
 If you find our work helpful, please consider citing:
 ```bibtex
-@inproceedings{}
+@misc{chen2024splatformer,
+    title={SplatFormer: Point Transformer for Robust 3D Gaussian Splatting}, 
+    author={Yutong Chen and Marko Mihajlovic and Xiyi Chen and Yiming Wang and Sergey Prokudin and Siyu Tang},
+    year={2024},
+    eprint={2411.06390},
+    archivePrefix={arXiv},
+    primaryClass={cs.CV},
+    url={https://arxiv.org/abs/2411.06390}, 
+}
 ```
 
 ## LICENSE
