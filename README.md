@@ -1,5 +1,5 @@
 # SplatFormer: Point Transformer for Robust 3D Gaussian Splatting
-[Project page](https://sergeyprokudin.github.io/splatformer/) | [Paper]() <br>
+[Project page](https://sergeyprokudin.github.io/splatformer/) | [Paper](https://arxiv.org/abs/2411.06390) <br>
 ![Teaser image](assets/teaser.png)
 
 This repo contains the official implementation for the paper "SplatFormer: Point Transformer for Robust 3D Gaussian Splatting". Our approach uses a point transformer to refine 3DGS for out-of-distribution novel view synthesis in a single feed-forward.
