@@ -25,12 +25,12 @@ test_dataset/SplatfactoDataset.train_or_test = 'test'
 test_dataset/SplatfactoDataset.nerfstudio_folder = {
     'objaverse':'test-set/objaverseOOD/nerfstudio',
     'GSO': 'test-set/GSOOOD/nerfstudio',
-    'real':'test-set/realOOD_v2/nerfstudio'
+    'real':'test-set/realOOD/nerfstudio'
 }
 test_dataset/SplatfactoDataset.colmap_folder = {
    'objaverse':'test-set/objaverseOOD/colmap',
     'GSO': 'test-set/GSOOOD/colmap',
-    'real':'test-set/realOOD_v2/colmap'
+    'real':'test-set/realOOD/colmap'
 }
 test_dataset/SplatfactoDataset.cache_steps = 1 
 test_dataset/SplatfactoDataset.cache_num_scenes = 1  
