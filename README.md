@@ -49,8 +49,8 @@ We also provide a small subset of our training set [here](https://drive.google.c
 
 ### Train
 ```
-sh scripts/train-on-objaverse.sh
-sh scripts/train-on-shapenet.sh
+sh scripts/train-on-objaverse_gpux8-accum4.sh
+sh scripts/train-on-objaverse_gpux8-accum4.sh
 ```
 By default, we use 8x4090 gpus or 8x3090 gpus, and a accumulation step of 4. You can change the configurations in the training script. You can download our trained checkpoints [here](https://drive.google.com/drive/folders/1WkrOexVd8S0lqbnr8Jx0wSqAiQQYVKdm?usp=sharing).
 
