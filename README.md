@@ -66,8 +66,8 @@ To evaluate the trained SplatFormer, please download the [OOD-NVS test sets and 
         └── RealOOD                
 You can download SplatFormers trained on Objaverse-v1 [here](https://drive.google.com/file/d/1l5RAGrkdRFRhR6KDgxZk5JdkDBM-7jh_/view?usp=sharing) and run the evaluations.
 ```
-sh scripts/train-on-objaverse_test.sh # Evaluate the model trained on Objaverse-v1 on Objaverse-OOD, GSO-OOD, and Real-OOD
-sh scripts/train-on-shapenet_test.sh # Evaluate the model trained on ShapeNet on ShapeNet-OOD
+sh scripts/train-on-objaverse_inference.sh # Evaluate the model trained on Objaverse-v1 on Objaverse-OOD, GSO-OOD, and Real-OOD
+sh scripts/train-on-objaverse_inference.sh # Evaluate the model trained on ShapeNet on ShapeNet-OOD
 ```
 Then under the output directory (e.g. outputs/objaverse_splatformer/test), you can see the evaluation metrics in eval.log, OOD renderings in objaverse/pred, and compare with 3DGS in objaverse/compare.
 
