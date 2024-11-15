@@ -301,7 +301,7 @@ def training(
         with torch.no_grad():
           imgs, _ = gs_utils.rasterize_gaussians_to_multiimgs(
             gpu_utils.move_to_device(out_batch_gs[0], device=model.device), batch_cameras[0])
-          imgs = [im.cpu().numpy().astype(np.uint8) for im in imgs]
+          imgs = [(im*255).cpu().numpy().astype(np.uint8) for im in imgs]
         grid = make_grid(imgs)
         grid = cv2.cvtColor(grid, cv2.COLOR_RGB2BGR)
         cv2.imwrite(os.path.join(output_dir, f'train/{step_consider_accum:08d}_pred-rank{dist.get_rank()}.png'), grid)
