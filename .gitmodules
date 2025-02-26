@@ -4,3 +4,6 @@
 [submodule "DataGenerator"]
 	path = DataGenerator
 	url = git@github.com:ChenYutongTHU/SplatFormer_DataGenerator.git
+[submodule "SIBR_viewers"]
+	path = SIBR_viewers
+	url = https://gitlab.inria.fr/sibr/sibr_core.git
