@@ -75,14 +75,15 @@ Then under the output directory (e.g. outputs/objaverse_splatformer/test), you c
 * Note: Our SplatFormer takes 3DGS trained for 10k steps as input. In our paper, we report 3DGS trained for 30k steps (default setting) as baselines. The two 3DGS training configurations lead to only small difference in the evaluation performance.
 
 ## Real-time 3DGS Viewer
-* 1. First, follow the [instrutions](https://github.com/graphdeco-inria/gaussian-splatting/tree/main?tab=readme-ov-file#installation-from-source) to install the SIBR viewers.
-* 2. Run the evaluation as described above and pass the flag `--save_viewer`, and you will see results saved in outputs/objaverse_splatformer/test/objaverse_splatformer/test/objaverse/viewer
-* 3. Run the following command to launch the real-time viewer
+1. First, follow the [instrutions](https://github.com/graphdeco-inria/gaussian-splatting/tree/main?tab=readme-ov-file#installation-from-source) to install the SIBR viewers.
+2. Run the evaluation as described above and pass the flag `--save_viewer`, and you will see plys saved in outputs/objaverse_splatformer/test/objaverse/viewer (iteration)
+3. Run the following command to launch the real-time viewer
 ```
 VIEW_DIR=outputs/objaverse_splatformer/test/objaverse/viewer/0a6e1a80d2e34d5981d6b2b440bbc8cd-10 # Take one scene for example
 cd SIBR_viewers/install/shaders/core
 ../../bin/SIBR_gaussianViewer_app \
-    -m $VIEW_DIR --load_iteration iteration_1 # iteration_1: SplatFormer; iteration_0: 3DGS input
+    -m $VIEW_DIR --load_iteration iteration_1 
+    # iteration_1 is the SplatFormer's output; iteration_0 is the original 3DGS input
 ```
 
 ## Citation
