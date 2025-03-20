@@ -27,6 +27,7 @@ flags.DEFINE_string('eval_subdir', 'eval_final', 'Eval subdirectory')
 flags.DEFINE_string('wandb_dir', '/cluster/scratch/chenyut/wandb', 'Wandbs Output directory')
 flags.DEFINE_boolean('only_eval', False, 'eval or train')
 flags.DEFINE_boolean('compare_with_input', False, 'Compare with input') #for evaluation
+flags.DEFINE_boolean('save_viewer', False, 'Save viewer')
 flags.DEFINE_multi_string(
   'gin_file', None, 'List of paths to the config files.')
 flags.DEFINE_multi_string(
@@ -62,6 +63,7 @@ def make_grid(imgs, nrow=3, ncols=3):
 def evaluation(model, test_loader, output_dir, output_gt, compare_with_pseudo, 
               compare_with_input=False,
               save_as_single=False,
+              save_viewer=False,
               evaluate_input=False):
     model.eval()
     metric_computer = MetricComputer()
@@ -140,7 +142,13 @@ def evaluation(model, test_loader, output_dir, output_gt, compare_with_pseudo,
             for ii,pred_img in enumerate(pred_imgs):
               pred_img = pred_img.cpu().numpy().astype(np.uint8)
               cv2.imwrite(os.path.join(output_dir_thisscene_single, test_batch_imgname[iii][ii]), pred_img[:,:,::-1])
-
+          if save_viewer:
+            viewerdir = os.path.join(output_dir, f'viewer/{test_batch_name[iii]}')
+            os.makedirs(viewerdir, exist_ok=True)
+            gs_utils.prepare_viewer(cameras, viewerdir, model.module.sh_degree)
+            # Save input 3dgs
+            gs_utils.export_ply_forviewer(gs_params=in_gs, filename=os.path.join(viewerdir, 'point_cloud/iteration_0/point_cloud.ply'))
+            gs_utils.export_ply_forviewer(gs_params=out_gs, filename=os.path.join(viewerdir, 'point_cloud/iteration_1/point_cloud.ply'))
           cnt += 1
           num_images += len(pred_imgs)
       metrics = metric_computer.sum() # We need to sum the metrics
@@ -386,6 +394,7 @@ def main(argv):
                             output_dir=FLAGS.output_dir+f'/{FLAGS.eval_subdir}/{test_dataset}', 
                             compare_with_input=FLAGS.compare_with_input,
                             save_as_single=True,
+                            save_viewer=FLAGS.save_viewer,
                             output_gt=True, compare_with_pseudo=False)
         if dist.get_rank() == 0:
             logger = ProcessSafeLogger(os.path.join(FLAGS.output_dir, FLAGS.eval_subdir, 'eval.log')).get_logger()

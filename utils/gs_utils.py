@@ -113,23 +113,149 @@ def rasterize_gaussians_to_singleimg(gs_params, camera_to_world, cx, cy, fx, fy,
 
     return rgb, alpha
 
+def focal2fov(focal, pixels):
+    return 2*math.atan(pixels/(2*focal))
 
-@gin.configurable(allowlist=['opacities', 'take_from_input','scales'])
-def create_pseudo_target(sh_degree, input_gs, take_from_input, N, opacities, scales):
-    target = {k:input_gs[k] for k in take_from_input}
-    assert 'means' in target and 'features_dc'in target
-    if 'scales' not in target:
-        target['scales'] = torch.ones_like(target['means'])*torch.log(torch.tensor(scales))
-    if 'opacities' in input_gs: #As logit
-        if 'opacities' not in target:
-            target['opacities'] = torch.logit(torch.tensor(opacities))*torch.ones(N, 1)
-    if 'features_rest' not in target and sh_degree>0:
-        sh_dim = (sh_degree+1)**2-1
-        target['features_rest'] = torch.zeros(N, sh_dim, 3)
-    if 'quats' not in target:
-        target['quats'] = torch.tensor([0, 0, 0, 1.]).repeat(N, 1)
-    return target
+def prepare_viewer(cameras, dirname, sh_degree):    #1. cfg_args
+    cfg_dict = {}
+    cfg_dict['source_path'] = '' # It does not matter
+    cfg_dict['sh_degree'] = sh_degree
+    cfg_dict['white_background'] = False
+    with open(dirname+'/cfg_args', 'w') as f:
+        f.write(str(Namespace(**cfg_dict)))
+    #2. Camera pose
+    cameras_towrite= []
+    for i, c2w_opengl in enumerate(cameras['camera_to_worlds'].flip(0)):
+        c2w_opengl  = cameras['camera_to_worlds'][i]
+        cam = {'id':i, 'img_name':f'img_{i}.png',
+               'width': cameras['width'].item(),
+                'height': cameras['height'].item(),
+                'fx': cameras['fx'].item(),
+                'fy': cameras['fy'].item(),
+                'FovX': None, 'FovY': None,
+                'position': None, 'rotation': None}
+        cam['FovX'] = focal2fov(cam['fx'], cam['width'])
+        cam['FovY'] = focal2fov(cam['fy'], cam['height'])
+        c2w_colmap_4x4 = np.eye(4)
+        c2w_colmap_4x4[:3,:4] = c2w_opengl.cpu().numpy()
+        c2w_colmap_4x4[:3,1:3]*=-1 #flip y and z
+        w2c = np.linalg.inv(c2w_colmap_4x4)
+        R = np.transpose(w2c[:3,:3])  # R is stored transposed due to 'glm' in CUDA code
+        T = w2c[:3, 3]
+        Rt = np.zeros((4, 4))
+        Rt[:3, :3] = R.transpose()
+        Rt[:3, 3] = T 
+        Rt[3, 3] = 1.0 
+
+        W2C = np.linalg.inv(Rt) 
+        pos = W2C[:3, 3] 
+        rot = W2C[:3, :3] 
+        serializable_array_2d = [x.tolist() for x in rot]
+        cam['position'] = pos.tolist()
+        cam['rotation'] = serializable_array_2d
+        cameras_towrite.append(cam)
+    with open(dirname+'/cameras.json', 'w') as f:
+        json.dump(cameras_towrite, f)
 
 
-    
+def export_ply_forviewer(gs_params, filename):
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    count = 0
+    map_to_tensors = OrderedDict()
 
+    with torch.no_grad():
+        positions = gs_params['means'].cpu().numpy()
+        count = positions.shape[0]
+        n = count
+        map_to_tensors["x"] = positions[:, 0]
+        map_to_tensors["y"] = positions[:, 1]
+        map_to_tensors["z"] = positions[:, 2]
+        map_to_tensors["nx"] = np.zeros(n, dtype=np.float32)
+        map_to_tensors["ny"] = np.zeros(n, dtype=np.float32)
+        map_to_tensors["nz"] = np.zeros(n, dtype=np.float32)
+
+
+        if 'features_rest' in gs_params and gs_params['features_rest'].shape[1]!=0:
+            shs_0 = gs_params['features_dc'].contiguous().cpu().numpy() #N,3
+            for i in range(shs_0.shape[1]):
+                map_to_tensors[f"f_dc_{i}"] = shs_0[:, i, None]
+            # transpose(1, 2) was needed to match the sh order in Inria version
+            shs_rest = gs_params['features_rest'].transpose(1, 2).contiguous().cpu().numpy()
+            shs_rest = shs_rest.reshape((n, -1))
+            for i in range(shs_rest.shape[-1]):
+                map_to_tensors[f"f_rest_{i}"] = shs_rest[:, i, None]
+        else:
+            #convert logit(color) to features_dc
+            color = torch.sigmoid(gs_params['features_dc'])
+            shs_0 = RGB2SH(color).cpu().numpy()
+            for i in range(shs_0.shape[1]):
+                map_to_tensors[f"f_dc_{i}"] = shs_0[:, i, None]
+
+        map_to_tensors["opacity"] = gs_params['opacities'].data.cpu().numpy()
+        scales =  gs_params['scales'].data.cpu().numpy()
+        for i in range(3):
+            map_to_tensors[f"scale_{i}"] = scales[:, i, None]
+
+        quats = gs_params['quats'].data.cpu().numpy()
+        for i in range(4):
+            map_to_tensors[f"rot_{i}"] = quats[:, i, None]
+
+
+    write_ply_v2(str(filename), map_to_tensors)
+
+def write_ply_v2(path, map_to_tensors):
+    '''
+    from Inria's 3DGS implementation
+    Save 3DGS for their viewer
+    '''
+    l = ['x', 'y', 'z', 'nx', 'ny', 'nz']
+    # All channels except the 3 DC
+    all_keys = list(map_to_tensors.keys())
+    f_dc = []
+    for key in all_keys:
+        if key.startswith('f_dc_'):
+            l.append(key)
+            f_dc.append(map_to_tensors[key])
+    f_dc = np.concatenate(f_dc, axis=1) # N, 3
+
+
+    f_rest = []
+    for key in all_keys:
+        if key.startswith('f_rest_'):
+            l.append(key)
+            f_rest.append(map_to_tensors[key]) # (N, 1)
+    if len(f_rest) > 0:
+        f_rest = np.concatenate(f_rest, axis=1) # (N,D)
+    else:
+        f_rest = np.zeros((f_dc.shape[0], 0))
+
+
+    l.append('opacity')
+    opacities = map_to_tensors['opacity']
+
+
+    scale = []
+    for key in all_keys:
+        if key.startswith('scale_'):
+            l.append(key)
+            scale.append(map_to_tensors[key])
+    scale = np.concatenate(scale, axis=1) # (N, 3)
+
+
+    rotation = []
+    for key in all_keys:
+        if key.startswith('rot_'):
+            l.append(key)
+            rotation.append(map_to_tensors[key])
+    rotation = np.concatenate(rotation, axis=1) # (N, 4)
+
+
+    dtype_full = [(attribute, 'f4') for attribute in l]
+    N = map_to_tensors['x'].shape[0]
+    elements = np.empty(N, dtype=dtype_full)
+    xyz = np.stack([map_to_tensors['x'], map_to_tensors['y'], map_to_tensors['z']], axis=1)
+    normals = np.zeros_like(xyz)
+    attributes = np.concatenate((xyz, normals, f_dc, f_rest, opacities, scale, rotation), axis=1)
+    elements[:] = list(map(tuple, attributes))
+    el = PlyElement.describe(elements, 'vertex')
+    PlyData([el]).write(path)
