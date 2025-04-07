@@ -27,7 +27,12 @@ from pointcept.models.builder import MODELS
 from pointcept.models.utils.misc import offset2bincount
 from pointcept.models.utils.structure import Point
 from pointcept.models.modules import PointModule, PointSequential
-from pointcept.models.point_transformer_v3 import SerializedPooling, Embedding, SerializedUnpooling, Block
+from pointcept.models.point_transformer_v3 import (
+    SerializedPooling, 
+    Embedding, 
+    SerializedUnpooling, 
+    Block
+)
 
 FEATURE2CHANNEL = {
     'means': 3,
@@ -87,9 +92,11 @@ class PointTransformerV3Model(nn.Module):
                 enc_channels=None,
                 pdnorm_bn=False,
                 pdnorm_ln=False,
-                pretrained_ckpt=None
-                ):
+                pretrained_ckpt=None,
+                additional_info:dict=None,
+        ):
         super(PointTransformerV3Model, self).__init__()
+        print('merge info', additional_info )
         if dec_channels is None:
             if output_dim==64:
                 self.dec_channels = (64, 64, 128, 256)
@@ -150,6 +157,7 @@ class PointTransformerV3Model(nn.Module):
             pdnorm_adaptive=False,
             pdnorm_affine=True,
             pdnorm_conditions=("ScanNet", "S3DIS", "Structured3D"), #This does not matter as pdnorm_bn/ln=False
+            additional_info=additional_info,
         )
         self.output_dim = self.dec_channels[0]
 
@@ -208,6 +216,7 @@ class PointTransformerV3(PointModule):
         pdnorm_adaptive=False,
         pdnorm_affine=True,
         pdnorm_conditions=("ScanNet", "S3DIS", "Structured3D"),
+        additional_info=None
     ):
         super().__init__()
         self.num_stages = len(enc_depths)
@@ -309,6 +318,7 @@ class PointTransformerV3(PointModule):
                         enable_flash=enable_flash,
                         upcast_attention=upcast_attention,
                         upcast_softmax=upcast_softmax,
+                        additional_info=additional_info,
                     ),
                     name=f"block{i}",
                 )
@@ -359,6 +369,7 @@ class PointTransformerV3(PointModule):
                             enable_flash=enable_flash,
                             upcast_attention=upcast_attention,
                             upcast_softmax=upcast_softmax,
+                            additional_info=additional_info,
                         ),
                         name=f"block{i}",
                     )

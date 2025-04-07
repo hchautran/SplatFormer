@@ -10,7 +10,6 @@ gin.external_configurable(torch.nn.Identity)
 gin.external_configurable(torch.nn.Tanh)
 gin.external_configurable(torch.nn.Sigmoid)
 from typing import List
-import gin
 
 FEATURE2CHANNEL = {
     'means': 3,

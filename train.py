@@ -74,7 +74,8 @@ def evaluation(model, test_loader, output_dir, output_gt, compare_with_pseudo,
       cnt = 0
       num_images, num_scenes = 0, 0
       pseudo_loss = {}
-      for test_batch in tqdm(test_loader): #A scene at a time
+      progress_bar = tqdm(total=len(test_loader), disable=dist.get_rank()!=0)
+      for test_batch in test_loader: #A scene at a time
         test_batch_gs = gpu_utils.move_to_device([data['gs_params'] for data in test_batch],model.device)
         test_batch_cameras = gpu_utils.move_to_device([data['cameras'] for data in test_batch],model.device)
         test_batch_images = gpu_utils.move_to_device([data['images'] for data in test_batch],model.device)
@@ -151,6 +152,7 @@ def evaluation(model, test_loader, output_dir, output_gt, compare_with_pseudo,
             gs_utils.export_ply_forviewer(gs_params=out_gs, filename=os.path.join(viewerdir, 'point_cloud/iteration_1/point_cloud.ply'))
           cnt += 1
           num_images += len(pred_imgs)
+          progress_bar.update(1)
       metrics = metric_computer.sum() # We need to sum the metrics
       metric_computer.write_to_file(os.path.join(output_dir, f'metrics.rank{dist.get_rank()}.json'))
       if compare_with_input:

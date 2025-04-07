@@ -119,6 +119,12 @@ class SplatfactoDataset(torch.utils.data.IterableDataset):
         worker_info = torch.utils.data.get_worker_info()
         return 
 
+    def __len__(self):
+        if self.train_or_test == 'train':
+            return len(self.remaining_scenes) * self.image_per_scene
+        else:
+            return len(self.remaining_scenes)
+
     @gin.configurable
     def read_image(self, path, background):
         try:
