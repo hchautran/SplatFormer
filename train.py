@@ -2,6 +2,7 @@ import torch, os
 import torch.nn as nn
 from tqdm import tqdm
 import numpy as np
+import functools
 import sys
 from torch.optim import SGD
 import wandb, json
@@ -22,18 +23,24 @@ from utils.metrics import psnr
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 
-flags.DEFINE_string('output_dir', 'output', 'Output directory')
-flags.DEFINE_string('eval_subdir', 'eval_final', 'Eval subdirectory')
-flags.DEFINE_string('wandb_dir', '/cluster/scratch/chenyut/wandb', 'Wandbs Output directory')
-flags.DEFINE_boolean('only_eval', False, 'eval or train')
-flags.DEFINE_boolean('compare_with_input', False, 'Compare with input') #for evaluation
-flags.DEFINE_boolean('save_viewer', False, 'Save viewer')
-flags.DEFINE_multi_string(
-  'gin_file', None, 'List of paths to the config files.')
-flags.DEFINE_multi_string(
-  'gin_param', '', 'Newline separated list of Gin parameter bindings.')
-
-FLAGS = flags.FLAGS
+def measure_gpu_memory(func):
+    """
+    Decorator to measure the maximum GPU memory usage during a function call.
+    """
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        # Reset peak memory stats
+        torch.cuda.reset_peak_memory_stats()
+        
+        # Call the wrapped function
+        result = func(*args, **kwargs)
+        
+        # Get the peak memory usage
+        max_memory = torch.cuda.max_memory_allocated() / (1024 ** 2)  # Convert to MB
+        print(f"Maximum GPU memory used during '{func.__name__}': {max_memory:.2f} MB")
+        
+        return result, max_memory
+    return wrapper
 
 @gin.configurable
 def set_seed(seed):
@@ -60,13 +67,14 @@ def make_grid(imgs, nrow=3, ncols=3):
     return grid
 
 @gin.configurable
+@measure_gpu_memory
 def evaluation(model, test_loader, output_dir, output_gt, compare_with_pseudo, 
               compare_with_input=False,
               save_as_single=False,
               save_viewer=False,
               evaluate_input=False):
     model.eval()
-    metric_computer = MetricComputer()
+    metric_computer = MetricComputer(log_result)
     if compare_with_input:
       metric_computer_input = MetricComputer()
     os.makedirs(output_dir, exist_ok=True)
@@ -331,7 +339,7 @@ def training(
       if (step%accumulate_step==0) and ((step_consider_accum+1) % save_interval == 0 or (step_consider_accum+1)==pretrain_steps): 
         if dist.get_rank()==0:
             os.makedirs(os.path.join(output_dir, 'checkpoints'), exist_ok=True)
-            torch.save(model.module.state_dict(), os.path.join(output_dir, f'checkpoints/model_{step_consider_accum:08d}.pth'))
+            torch.save(model.module.stabuild_testloadere_dict(), os.path.join(output_dir, f'checkpoints/model_{step_consider_accum:08d}.pth'))
             logger.info(f'Save model at step {step_consider_accum}')
         dist.barrier()
       model.train()
@@ -343,6 +351,31 @@ def training(
     return step
 
 
+
+
+def log_result(metrics, test_dataset, metrics_input, merge_info=None, max_mem=0):
+  if os.path.exists('eval.csv'):
+    with open('eval.csv', 'a') as f:
+      if merge_info is not None:
+        algo = merge_info['tome']
+        r = merge_info['r']
+      else:
+        algo = 'base' 
+        r = '0.0'
+
+      f.write(f'{test_dataset},{metrics["psnr"]},{metrics["ssim"]},{metrics["lpips"]},{algo},{r},{max_mem}\n')
+  else:
+    with open('eval.csv', 'w') as f:
+      f.write('dataset,psnr,ssim,lpips,algo,r,max mem\n')
+    logger = ProcessSafeLogger(os.path.join(FLAGS.output_dir, FLAGS.eval_subdir, 'eval.log')).get_logger()
+    metric_str = ' '.join([f'{k}: {v:.4f}' for k,v in metrics.items()])
+    logger.info(f'Test-{test_dataset}: {metric_str}')
+    if FLAGS.compare_with_input:
+      metric_str = ' '.join([f'{k}: {v:.4f}' for k,v in metrics_input.items()])
+      logger.info(f'Input 3DGS: Test-{test_dataset}: {metric_str}')
+
+
+
 def main(argv):
     dist.init_process_group("nccl")
     rank = dist.get_rank()
@@ -351,6 +384,9 @@ def main(argv):
     device_id = rank % torch.cuda.device_count()
     gin.bind_parameter('training.output_dir', FLAGS.output_dir)
     gin.parse_config_files_and_bindings(FLAGS.gin_file, FLAGS.gin_param)
+    merge_info  = gin.query_parameter("PointTransformerV3Model.additional_info")
+    print(merge_info)
+
     os.makedirs(FLAGS.output_dir, exist_ok=True)
     set_seed()
     # 1. Dataloading
@@ -392,21 +428,35 @@ def main(argv):
 
     model.eval()
     for test_dataset, test_loader in build_testloader().items():
-        metrics, metrics_input = evaluation(model, test_loader = test_loader, 
+        print(f'Evaluating {test_dataset}...')
+        
+        (metrics, metrics_input), max_mem = evaluation(model, test_loader = test_loader, 
                             output_dir=FLAGS.output_dir+f'/{FLAGS.eval_subdir}/{test_dataset}', 
                             compare_with_input=FLAGS.compare_with_input,
                             save_as_single=True,
                             save_viewer=FLAGS.save_viewer,
                             output_gt=True, compare_with_pseudo=False)
+
         if dist.get_rank() == 0:
-            logger = ProcessSafeLogger(os.path.join(FLAGS.output_dir, FLAGS.eval_subdir, 'eval.log')).get_logger()
-            metric_str = ' '.join([f'{k}: {v:.4f}' for k,v in metrics.items()])
-            logger.info(f'Test-{test_dataset}: {metric_str}')
-            if FLAGS.compare_with_input:
-              metric_str = ' '.join([f'{k}: {v:.4f}' for k,v in metrics_input.items()])
-              logger.info(f'Input 3DGS: Test-{test_dataset}: {metric_str}')
+          log_result(metrics=metrics, test_dataset=test_dataset, metrics_input=metrics_input, merge_info=merge_info, max_mem=max_mem)
+
         dist.barrier()
     
     dist.destroy_process_group()
 
-app.run(main)
+if __name__ == '__main__':
+
+  flags.DEFINE_string('output_dir', 'output', 'Output directory')
+  flags.DEFINE_string('eval_subdir', 'eval_final', 'Eval subdirectory')
+  flags.DEFINE_string('wandb_dir', '/cluster/scratch/chenyut/wandb', 'Wandbs Output directory')
+  flags.DEFINE_boolean('only_eval', False, 'eval or train')
+  flags.DEFINE_boolean('compare_with_input', False, 'Compare with input') #for evaluation
+  flags.DEFINE_boolean('save_viewer', False, 'Save viewer')
+  flags.DEFINE_multi_string(
+    'gin_file', None, 'List of paths to the config files.')
+  flags.DEFINE_multi_string(
+    'gin_param', '', 'Newline separated list of Gin parameter bindings.')
+
+  FLAGS = flags.FLAGS
+
+  app.run(main)

@@ -1,12 +1,13 @@
 
-path="/projects/extern/kisski/kisski-umg-fairpact-2/dir.project/llm_quantize/SplatFormer/"
+path="/home/phuc/SplatFormer"
 model_path="$path/train-on-objaverse.pth"
+compress_mode=$1
 
 torchrun --nnodes=1 --nproc_per_node=1 --rdzv-endpoint=localhost:29518 \
     train.py \
-    --output_dir=outputs/objaverse_splatformer \
+    --output_dir=outputs_$compress_mode/objaverse_splatformer \
     --gin_file=configs/dataset/objaverse.gin \
-    --gin_file=configs/model/ptv3_tome.gin \
+    --gin_file=configs/model/ptv3_$compress_mode.gin \
     --gin_file=configs/train/default.gin \
     --gin_param="build_trainloader.batch_size=1" \
     --only_eval --eval_subdir test --compare_with_input \
