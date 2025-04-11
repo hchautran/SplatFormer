@@ -38,6 +38,7 @@ class FeaturePredictor(nn.Module):
                  resume_ckpt,
                  input_embed_to_mlp,
                  zeroinit,
+                 additional_info=None
                  ):
         super(FeaturePredictor, self).__init__()
         self.sh_degree = sh_degree
@@ -61,7 +62,7 @@ class FeaturePredictor(nn.Module):
         if backbone_type == 'SP':
             self.backbone = SparseConvModel(in_channels=in_channels)
         elif backbone_type == 'PT':
-            self.backbone = PointTransformerV3Model(in_channels=in_channels)
+            self.backbone = PointTransformerV3Model(in_channels=in_channels, additional_info=additional_info)
         else:
             raise NotImplementedError
         head_input_dim = self.backbone.output_dim

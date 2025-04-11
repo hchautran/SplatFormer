@@ -159,6 +159,7 @@ cython_debug/
 train-set/
 test-set/
 outputs/
+visualization/
 *.pth
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can

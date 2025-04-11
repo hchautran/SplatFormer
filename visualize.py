@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
 from collections import OrderedDict
@@ -14,11 +15,15 @@ from pointcept.engines.defaults import (
     # default_setup,
 )
 import gin
-from utils import gpu_utils,gs_utils, loss_utils
+from utils import gpu_utils, gs_utils, loss_utils
 import torch.distributed as dist
 from absl import app, flags
 from train import set_seed, training 
 from pointcept.models.point_transformer_v3.point_transformer_v3m1_base import VALID_TOME_MODES
+from collections import defaultdict
+import gc
+
+VALID_TOME_MODES = ["patch", "tome", "progressive", "pitome", "random_patch", "base", 'important_patch']
 
     
 def create_color_palette():
@@ -68,13 +73,27 @@ def create_color_palette():
     ], dtype=np.uint8)
 
 
-class Visualizer:
+class Model:
     def __init__(self):
-        self.model = FeaturePredictor()
+                
+        self.additional_info={
+            "replace_attn": None,
+            "tome": "patch",
+            "r": 0.1,
+            "stride": 50,
+            "tome_mlp": True,
+            "tome_attention": True,
+            "trace_back": False,
+            "single_head_tome": False,
+            "margin":0.9,
+            "alpha": 1.0,
+            "threshold": 0.9
+        }
+
+        self.model = FeaturePredictor(additional_info=self.additional_info)
         self.model.eval()
         self.test_loader = build_testloader()
         self.train_loader = build_trainloader()
-        self.visualizer = viz.Visualizer()
         self.dict = {}
     
     def get_model(self):
@@ -125,8 +144,6 @@ class Visualizer:
             # padding and reshape feat and batch for serialized point patch
             coords = point.coord[order] 
             qkv = module.qkv(point.feat)[order]
-            
-            
             H = module.num_heads
             K = module.patch_size
             C = module.channels
@@ -171,7 +188,7 @@ class Visualizer:
                 merged_colors = torch.rand(B, H, v.shape[2], 3).cuda()
                 merged_colors = module.process_unreduction(merged_colors, unmerge)
                 coords = module.process_unreduction(coords, unmerge)
-
+# 
 
                 for i in range(H):
                     merged_c = merged_colors[:, i].reshape(-1, 3)
@@ -190,7 +207,7 @@ class Visualizer:
                 ori_attn_feat = ori_feat[:, i].reshape(-1, C)[inverse]
                 coord = coords[:, i].reshape(-1, 3)[inverse]
                 attn_feats.append(attn_feat)
-                ori_attn_feat.append(attn_feat)
+                ori_attn_feats.append(ori_attn_feat)
                 merged_coords.append(coord)
 
             feat = feat.transpose(1, 2).reshape(-1, C)
@@ -233,64 +250,91 @@ class Visualizer:
         for hook in hooks:
             hook.remove()
 
+class Visualizer():
+    def __init__(self):
+        self.visualizer = viz.Visualizer()
 
+    def __call__(self, positions, colors=None, name='random_obj'):
+        if isinstance(positions, torch.Tensor):
+            positions = positions.cpu().detach().numpy()
         
+        if colors is None:
+            colors = np.zeros_like(positions)
 
-
+        point_size= 10
+        self.visualizer.add_points(name, positions, colors, point_size=point_size)
+        self.visualizer.save('visualization')
             
 
 def main(argv):
     dist.init_process_group('nccl')
     gin.parse_config_files_and_bindings(FLAGS.gin_file, FLAGS.gin_param)
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    visualizer = Visualizer()
-    model = visualizer.get_model().to(device)
-
-    loader = visualizer.get_loader('test')
-    hooks, features, hooked_layer_names = visualizer.register_get_feature_hook(['attn'])
     count=0
+    all_coords = defaultdict(list)
+    all_diffs = defaultdict(list) 
     
+    for idx_algo, algo in enumerate(['base', 'progressive', 'patch', 'important_patch' ]):
+        model = Model()
+        model.additional_info['tome'] = algo
+        model.additional_info['r'] = 0.90 
+        model.additional_info['stride'] = 10 
+        hooks, features, hooked_layer_names = model.register_get_feature_hook(['attn'])
+        loaders = model.get_loader(mode='test')
+        model = model.get_model().to(device)
 
-    for name, loader in loader.items():
-        for item in loader:
-            if count ==0:
-                with torch.no_grad():
-                    test_batch_gs = gpu_utils.move_to_device([data['gs_params'] for data in item], device)
-                    test_batch_idx = [data['scene_idx'] for data in item]
-                    forward_kwargs = {'batch_normalized_gs': test_batch_gs, 'batch_scene_idx': test_batch_idx}
-                    _ = model(**forward_kwargs)
-                    for idx, layer in enumerate(hooked_layer_names):
-                        coords = features[idx]['coords']
-                        input_feats = features[idx]['input_feat']
-                        attn_feats = features[idx]['attn_feats']
-                        ori_attn_feats = features[idx]['ori_attn_feats']
-                        merged_coords = features[idx]['merged_coords'][0].detach().cpu().numpy()
-                        color_intput = visualizer.get_pca_color(input_feats)
-                        color_merge = visualizer.get_pca_color(features[idx]['merged_infos'][0])
-                        color_attn = visualizer.get_pca_color(attn_feats[0])
-                        color_ori_attn = visualizer.get_pca_color(ori_attn_feats[0])
-                        int()
-                        
-                        value = f
-                        value = features[idx]['value'] = features[idx]['ori_value']
-                        merged_coords[:,0] = merged_coords[:,0] + idx * 0.5 
-                        coords[:,0] = coords[:,0] + idx * 0.5 
+        for name, loader in loaders.items():
+            for item in loader:
+                if count ==0:
+                    with torch.no_grad():
+                        test_batch_gs = gpu_utils.move_to_device([data['gs_params'] for data in item], device)
+                        test_batch_idx = [data['scene_idx'] for data in item]
+                        forward_kwargs = {'batch_normalized_gs': test_batch_gs, 'batch_scene_idx': test_batch_idx}
+                        _ = model(**forward_kwargs)
+                        for idx, layer in enumerate(hooked_layer_names):
+                            if idx == len(hooked_layer_names) - 1:
+                                coords = features[idx]['coords']
+                                # input_feats = features[idx]['input_feat']
+                                attn_feats = features[idx]['attn_feats']
+                                ori_attn_feats = features[idx]['ori_attn_feats']
+                                merged_coords = features[idx]['merged_coords'][0].detach().cpu().numpy()
 
-                        visualizer.color_ori_attn()
-                            positions=coords,
-                            colors=color_diff_attn,
-                            name=layer
-                        )
-                        
-                        # visualizer.visualize(
-                            # positions=coords,
-                            # colors=color_attn,
-                            # name=layer
-                        # )
-                    break
-            count += 1
-        break
+                                # color_intput = model.get_pca_color(input_feats)
+                                # color_merge = model.get_pca_color(features[idx]['merged_infos'][0])
+                                # color_attn = model.get_pca_color(attn_feats[0])
+                                # color_ori_attn = model.get_pca_color(ori_attn_feats[0])
+                                # value = features[idx]['value'] = features[idx]['ori_value']
+                                merged_coords[:,0] = merged_coords[:,0] + idx_algo * .75 
+                                merged_coords[:,1] = merged_coords[:,1] + idx * .75 
+                                coords[:,0] = coords[:,0] + idx_algo * 0.75 
+                                coords[:,1] = coords[:,1] + idx * 0.75 
 
+                                diff = torch.abs(attn_feats[0] - ori_attn_feats[0]).mean(-1)
+                                all_diffs[f'{layer}'].append(diff)
+                                all_coords[f'{layer}'].append(coords)
+                break 
+            break
+        del model
+        gc.collect()
+        torch.cuda.empty_cache()
+        
+                    
+    visualizer = Visualizer()
+    for key in all_diffs.keys():
+        diffs = torch.cat(all_diffs[key], dim=0)
+        diff_normalized = (diffs - diffs.min())/ (diffs.max() - diffs.min() + 1e-5)
+        cmap = plt.cm.get_cmap('RdYlGn')
+        color_diff_attn = cmap(1 - diff_normalized.detach().cpu().numpy())[:, :3]
+        color_diff_attn = (color_diff_attn * 255).astype(int).reshape(len(all_diffs[key]), -1, 3)
+        for idx in range(len(all_diffs[key])):
+            visualizer(
+                positions=all_coords[key][idx],
+                colors=color_diff_attn[idx],
+                name=f'{key}_{idx}'
+            )
+
+
+    
     dist.destroy_process_group()
 
 if __name__ == '__main__':
