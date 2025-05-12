@@ -1,5 +1,5 @@
-ngpus=8
-accumulate_step=4
+ngpus=1
+accumulate_step=1
 batch_size=$((ngpus * accumulate_step))
 
 torchrun --nnodes=1 --nproc_per_node=${ngpus} --rdzv-endpoint=localhost:29518 \

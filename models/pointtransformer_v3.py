@@ -81,19 +81,19 @@ class PointSequential_intermediate_output(PointSequential):
 @gin.configurable
 class PointTransformerV3Model(nn.Module):
     def __init__(self, in_channels, enable_flash, 
-                enc_dim, output_dim,
-                turn_off_bn, stride,
-                embedding_type='MLP',
-                enc_depths=(2, 2, 2, 6, 2),
-                enc_num_head=(2, 4, 8, 16, 32),
-                dec_depths=(2, 2, 2, 2),
-                dec_num_head=(4, 4, 8, 16),
-                dec_channels=None,
-                enc_channels=None,
-                pdnorm_bn=False,
-                pdnorm_ln=False,
-                pretrained_ckpt=None,
-                additional_info:dict=None,
+            enc_dim, output_dim,
+            turn_off_bn, stride,
+            embedding_type='MLP',
+            enc_depths=(2, 2, 2, 6, 2),
+            enc_num_head=(2, 4, 8, 16, 32),
+            dec_depths=(2, 2, 2, 2),
+            dec_num_head=(4, 4, 8, 16),
+            dec_channels=None,
+            enc_channels=None,
+            pdnorm_bn=False,
+            pdnorm_ln=False,
+            pretrained_ckpt=None,
+            additional_info:dict=None,
         ):
         super(PointTransformerV3Model, self).__init__()
         print('merge info', additional_info )
