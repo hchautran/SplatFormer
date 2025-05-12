@@ -37,7 +37,7 @@ def measure_gpu_memory(func):
         
         # Get the peak memory usage
         max_memory = torch.cuda.max_memory_allocated() / (1024 ** 2)  # Convert to MB
-        print(f"Maximum GPU memory used during '{func.__name__}': {max_memory:.2f} MB")
+        # print(f"Maximum GPU memory used during '{func.__name__}': {max_memory:.2f} MB")
         
         return result, max_memory
     return wrapper
@@ -327,10 +327,13 @@ def training(
       if ((step%accumulate_step==0) and ((step_consider_accum % eval_interval == 0) or (step_consider_accum+1)==pretrain_steps)):
         model.eval()
         for test_dataset, test_loader in build_testloader().items():
-            metrics, metrics_input = evaluation(model, test_loader = test_loader,
-                                output_dir=output_dir+f'/eval/{test_dataset}/{step_consider_accum}', output_gt=(step_consider_accum==0), compare_with_pseudo=step_consider_accum<pretrain_steps,
-                                evaluate_input=(step_consider_accum==0)) #when step==0, we evaluate the input
+            metrics, metrics_input = evaluation(
+              model, test_loader = test_loader,
+              output_dir=output_dir+f'/eval/{test_dataset}/{step_consider_accum}', output_gt=(step_consider_accum==0), compare_with_pseudo=step_consider_accum<pretrain_steps,
+              evaluate_input=(step_consider_accum==0)
+            ) #when step==0, we evaluate the input
             if dist.get_rank() == 0:
+                print(metrics)
                 wandb.log({f'metrics_testscenes/{test_dataset}/{k}_testviews':v for k,v in metrics.items()}, step=step_consider_accum)
                 metric_str = ' '.join([f'{k}: {v:.4f}' for k,v in metrics.items()])
                 logger.info(f'Test {test_dataset} Step {step_consider_accum}: {metric_str}')
@@ -362,6 +365,8 @@ def log_result(metrics, test_dataset, metrics_input, merge_info=None, max_mem=0)
       else:
         algo = 'base' 
         r = '0.0'
+      
+      print(metrics)
 
       f.write(f'{test_dataset},{metrics["psnr"]},{metrics["ssim"]},{metrics["lpips"]},{algo},{r},{max_mem}\n')
   else:
@@ -392,7 +397,7 @@ def main(argv):
     # 1. Dataloading
     train_loader = build_trainloader()
     # 2. Build Model
-    model = FeaturePredictor()
+    model = FeaturePredictor(additional_info=merge_info)
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'Number of trainable parameters: {num_params}')
 

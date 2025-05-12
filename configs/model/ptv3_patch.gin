@@ -1,5 +1,5 @@
 FeaturePredictor.backbone_type = "PT"
-FeaturePredictor.sh_degree = 1 
+FeaturePredictor.sh_degree = 1
 FeaturePredictor.output_head_nlayer = 4
 FeaturePredictor.output_head_type='mlp-relu'
 FeaturePredictor.max_scale_normalized = 1e-2 # Help stablize the training
@@ -10,7 +10,7 @@ FeaturePredictor.input_features = ['means','scales', 'opacities', 'quats', 'feat
 FeaturePredictor.output_features = ['means','scales', 'opacities', 'quats', 'features_dc', 'features_rest']
 FeaturePredictor.output_head_width = 128
 FeaturePredictor.zeroinit = True
- 
+
 
 FeaturePredictor.res_feature_activation = {
     "means":  @Tanh(),
@@ -33,8 +33,8 @@ PointTransformerV3Model.embedding_type = 'MLP'
 PointTransformerV3Model.additional_info={
     "replace_attn": None,
     "tome": "patch",
-    "r": 0.3,
-    "stride": 2,
+    "r": 0.995,
+    "stride": 100,
     "tome_mlp": True,
     "tome_attention": True,
     "trace_back": False,

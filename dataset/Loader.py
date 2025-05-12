@@ -10,6 +10,8 @@ def GS_collate_fn(data_list):
 def build_trainloader(batch_size, num_workers, collate_fn, accumulate_step):
     with gin.config_scope('train_dataset'):
         train_dataset = SplatfactoDataset()
+    print('batch size', batch_size)
+    print('device count', torch.cuda.device_count())
     assert batch_size % torch.cuda.device_count() == 0, 'Batch size should be divisible by the number of GPUs'
     assert batch_size % accumulate_step == 0, 'Batch size should be divisible by the number of accumulate steps'
     batch_size_per_gpu = int(batch_size / (torch.cuda.device_count()*accumulate_step))

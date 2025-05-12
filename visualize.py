@@ -18,14 +18,14 @@ import gin
 from utils import gpu_utils, gs_utils, loss_utils
 import torch.distributed as dist
 from absl import app, flags
-from train import set_seed, training 
+from train import set_seed, training
 from pointcept.models.point_transformer_v3.point_transformer_v3m1_base import VALID_TOME_MODES
 from collections import defaultdict
 import gc
 
 VALID_TOME_MODES = ["patch", "tome", "progressive", "pitome", "random_patch", "base", 'important_patch']
 
-    
+
 def create_color_palette():
     return np.array([
        (0, 0, 0),
@@ -68,14 +68,14 @@ def create_color_palette():
        (213, 92, 176),
        (94, 106, 211),
        (82, 84, 163),  		# otherfurn
-       (100, 85, 144), 
+       (100, 85, 144),
        (0,0,0),
     ], dtype=np.uint8)
 
 
 class Model:
     def __init__(self):
-                
+
         self.additional_info={
             "replace_attn": None,
             "tome": "patch",
@@ -95,10 +95,10 @@ class Model:
         self.test_loader = build_testloader()
         self.train_loader = build_trainloader()
         self.dict = {}
-    
+
     def get_model(self):
         return self.model
-    
+
     def get_loader(self, mode='train'):
         if not mode == 'train':
             return self.test_loader
@@ -121,14 +121,14 @@ class Model:
     def visualize(self, positions, colors=None, name='random_obj'):
         if isinstance(positions, torch.Tensor):
             positions = positions.cpu().detach().numpy()
-        
+
         if colors is None:
             colors = np.zeros_like(positions)
 
         point_size=5
         self.visualizer.add_points(name, positions, colors, point_size=point_size)
         self.visualizer.save('visualization')
-    
+
     def register_get_feature_hook(self, keywords):
         extracted_features = []
         hooks = []
@@ -140,30 +140,30 @@ class Model:
             pad, unpad, cu_seqlens = module.get_padding_and_inverse(point)
             order = point.serialized_order[module.order_index][pad]
             inverse = unpad[point.serialized_inverse[module.order_index]]
-            
+
             # padding and reshape feat and batch for serialized point patch
-            coords = point.coord[order] 
+            coords = point.coord[order]
             qkv = module.qkv(point.feat)[order]
             H = module.num_heads
             K = module.patch_size
             C = module.channels
-            
+
             ori_q, ori_k, ori_v = (
                 qkv.reshape(-1, K, 3, H, C // H).permute(2, 0, 3, 1, 4).unbind(dim=0)
             )
             coords = coords.reshape(-1, K, 3).unsqueeze(1).expand(-1,H, K, 3)
-            
+
 
             B, H, T, C = ori_v.shape
-            
+
             if (module.additional_info is not None) and \
                             module.additional_info["tome"] in VALID_TOME_MODES:
-                
+
                 # print("Initialize patch_tome")
                 q, k, v, size, merge, unmerge = module.process_merging(ori_q, ori_k, ori_v, order, inverse)
                 coords = merge(coords)
 
-            
+
             attn = (q * module.scale) @ k.transpose(-2, -1)  # (N', H, K, K)
             ori_attn = (ori_q * module.scale) @ ori_k.transpose(-2, -1)  # (N', H, K, K)
 
@@ -173,36 +173,36 @@ class Model:
 
             attn = module.softmax(attn)
             ori_attn = module.softmax(ori_attn)
-            attn = module.attn_drop(attn).to(qkv.dtype) 
-            ori_attn = module.attn_drop(ori_attn).to(qkv.dtype) 
+            attn = module.attn_drop(attn).to(qkv.dtype)
+            ori_attn = module.attn_drop(ori_attn).to(qkv.dtype)
             feat = (attn @ v) # (N', H, K, C // H)
             ori_feat = (ori_attn @ ori_v) # (N', H, K, C // H)
-            
+
             if (module.additional_info is not None) and \
                 (module.additional_info["tome"] in VALID_TOME_MODES) and \
                     module.additional_info["tome_attention"]:
 
                 feat = module.process_unreduction(feat, unmerge) # (N, H, K, C // H)
                 merged_infos = []
-                
+
                 merged_colors = torch.rand(B, H, v.shape[2], 3).cuda()
                 merged_colors = module.process_unreduction(merged_colors, unmerge)
                 coords = module.process_unreduction(coords, unmerge)
-# 
+#
 
                 for i in range(H):
                     merged_c = merged_colors[:, i].reshape(-1, 3)
                     merged_c = merged_c[inverse]
                     merged_infos.append(merged_c)
-                
+
                 v = module.process_unreduction(v, unmerge)
             else:
                 merged_infos = None
-            
+
             attn_feats = []
             ori_attn_feats = []
             merged_coords =[]
-            for i in range(H):  
+            for i in range(H):
                 attn_feat = feat[:, i].reshape(-1, C)[inverse]
                 ori_attn_feat = ori_feat[:, i].reshape(-1, C)[inverse]
                 coord = coords[:, i].reshape(-1, 3)[inverse]
@@ -216,7 +216,7 @@ class Model:
             segments_ids = torch.zeros((B, T)).cuda()
             segments_ids = segments_ids + torch.arange(B).cuda().unsqueeze(-1)
             segments_ids = segments_ids.reshape(-1, 1)
-            
+
             feat = feat[inverse]
             ori_feat = ori_feat[inverse]
             segments_ids = segments_ids[inverse]
@@ -257,14 +257,14 @@ class Visualizer():
     def __call__(self, positions, colors=None, name='random_obj'):
         if isinstance(positions, torch.Tensor):
             positions = positions.cpu().detach().numpy()
-        
+
         if colors is None:
             colors = np.zeros_like(positions)
 
         point_size= 10
         self.visualizer.add_points(name, positions, colors, point_size=point_size)
         self.visualizer.save('visualization')
-            
+
 
 def main(argv):
     dist.init_process_group('nccl')
@@ -272,13 +272,13 @@ def main(argv):
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     count=0
     all_coords = defaultdict(list)
-    all_diffs = defaultdict(list) 
-    
+    all_diffs = defaultdict(list)
+
     for idx_algo, algo in enumerate(['base', 'progressive', 'patch', 'important_patch' ]):
         model = Model()
         model.additional_info['tome'] = algo
-        model.additional_info['r'] = 0.90 
-        model.additional_info['stride'] = 10 
+        model.additional_info['r'] = 0.90
+        model.additional_info['stride'] = 10
         hooks, features, hooked_layer_names = model.register_get_feature_hook(['attn'])
         loaders = model.get_loader(mode='test')
         model = model.get_model().to(device)
@@ -304,21 +304,21 @@ def main(argv):
                                 # color_attn = model.get_pca_color(attn_feats[0])
                                 # color_ori_attn = model.get_pca_color(ori_attn_feats[0])
                                 # value = features[idx]['value'] = features[idx]['ori_value']
-                                merged_coords[:,0] = merged_coords[:,0] + idx_algo * .75 
-                                merged_coords[:,1] = merged_coords[:,1] + idx * .75 
-                                coords[:,0] = coords[:,0] + idx_algo * 0.75 
-                                coords[:,1] = coords[:,1] + idx * 0.75 
+                                merged_coords[:,0] = merged_coords[:,0] + idx_algo * .75
+                                merged_coords[:,1] = merged_coords[:,1] + idx * .75
+                                coords[:,0] = coords[:,0] + idx_algo * 0.75
+                                coords[:,1] = coords[:,1] + idx * 0.75
 
                                 diff = torch.abs(attn_feats[0] - ori_attn_feats[0]).mean(-1)
                                 all_diffs[f'{layer}'].append(diff)
                                 all_coords[f'{layer}'].append(coords)
-                break 
+                break
             break
         del model
         gc.collect()
         torch.cuda.empty_cache()
-        
-                    
+
+
     visualizer = Visualizer()
     for key in all_diffs.keys():
         diffs = torch.cat(all_diffs[key], dim=0)
@@ -334,7 +334,7 @@ def main(argv):
             )
 
 
-    
+
     dist.destroy_process_group()
 
 if __name__ == '__main__':
@@ -346,4 +346,3 @@ if __name__ == '__main__':
     'gin_param', '', 'Newline separated list of Gin parameter bindings.')
     flags.DEFINE_boolean('only_eval', True, 'eval or train')
     app.run(main)
-    
