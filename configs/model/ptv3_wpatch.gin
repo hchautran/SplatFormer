@@ -34,7 +34,7 @@ PointTransformerV3Model.additional_info={
     "replace_attn": None,
     "tome": "weighted_patch",
     "low_r": 1,
-    "r": 0.3,
+    "r": 0.0,
     "stride": 2,
     "tome_mlp": True,
     "tome_attention": True,

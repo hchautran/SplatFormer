@@ -3,7 +3,7 @@ path="$PROJECT_DIR/SplatFormer"
 model_path="$path/train-on-objaverse.pth"
 compress_mode=$1
 
-CUDA_VISIBLE_DEVICES=$2 torchrun --nnodes=1 --nproc_per_node=1 --rdzv-endpoint=localhost:29518 \
+CUDA_VISIBLE_DEVICES=0 torchrun --nnodes=1 --nproc_per_node=1 --rdzv-endpoint=localhost:29518 \
     train.py \
     --output_dir=outputs_$compress_mode/objaverse_splatformer \
     --gin_file=configs/dataset/objaverse.gin \
