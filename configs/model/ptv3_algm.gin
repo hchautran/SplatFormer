@@ -26,7 +26,7 @@ FeaturePredictor.input_feat_to_mlp = True
 
 PointTransformerV3Model.enable_flash = False
 PointTransformerV3Model.output_dim = 96
-PointTransformerV3Model.enc_dim = 65
+PointTransformerV3Model.enc_dim = 64
 PointTransformerV3Model.turn_off_bn = False
 PointTransformerV3Model.stride = (1,2,2,2)
 PointTransformerV3Model.embedding_type = 'MLP'

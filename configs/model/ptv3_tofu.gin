@@ -1,9 +1,5 @@
 FeaturePredictor.backbone_type = "PT"
-<<<<<<< HEAD
-FeaturePredictor.sh_degree = 1
-=======
 FeaturePredictor.sh_degree = 1 
->>>>>>> 502e62c (add baselines)
 FeaturePredictor.output_head_nlayer = 4
 FeaturePredictor.output_head_type='mlp-relu'
 FeaturePredictor.max_scale_normalized = 1e-2 # Help stablize the training

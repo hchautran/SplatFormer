@@ -156,7 +156,6 @@ class FeaturePredictor(nn.Module):
             model_input['grid_coord'] = torch.floor(model_input['coord']*self.grid_resolution).int() #[0~1]/
         else:
             raise NotImplementedError
-
         downsample = False
         if "downsample" in self.additional_info:
             downsample = True

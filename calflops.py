@@ -137,33 +137,25 @@ def evaluation(model, test_loader, output_dir, output_gt, compare_with_pseudo,
         _ = model(**forward_kwargs)
         print('attn flops', gflops['attn flops']/(idx + 1))
         progress_bar.update(1)
+    return gflops['attn flops']/(idx + 1)
 
 
 
 
 
-def log_result(metrics, test_dataset, metrics_input, merge_info=None, max_mem=0):
+def log_result(gflops, merge_info=None):
   if os.path.exists('eval.csv'):
-    with open('eval.csv', 'a') as f:
+    with open('gflops.csv', 'a') as f:
       if merge_info is not None:
         algo = merge_info['tome']
         r = merge_info['r']
       else:
         algo = 'base' 
         r = '0.0'
-      
-      print(metrics)
-
-      f.write(f'{test_dataset},{metrics["psnr"]},{metrics["ssim"]},{metrics["lpips"]},{algo},{r},{max_mem}\n')
+      f.write(f'{gflops:.2f},{algo},{r}\n')
   else:
-    with open('eval.csv', 'w') as f:
-      f.write('dataset,psnr,ssim,lpips,algo,r,max mem\n')
-    logger = ProcessSafeLogger(os.path.join(FLAGS.output_dir, FLAGS.eval_subdir, 'eval.log')).get_logger()
-    metric_str = ' '.join([f'{k}: {v:.4f}' for k,v in metrics.items()])
-    logger.info(f'Test-{test_dataset}: {metric_str}')
-    if FLAGS.compare_with_input:
-      metric_str = ' '.join([f'{k}: {v:.4f}' for k,v in metrics_input.items()])
-      logger.info(f'Input 3DGS: Test-{test_dataset}: {metric_str}')
+    with open('gflops.csv', 'w') as f:
+      f.write('gflops,algo,r\n')
 
 
 
@@ -190,8 +182,8 @@ def main(argv):
     model.eval()
     for test_dataset, test_loader in build_testloader().items():
         print(f'Evaluating {test_dataset}...')
-        if len(test_loader) <10 :
-          evaluation(
+        if len(test_loader) >10 :
+          gflops=evaluation(
             model, 
             test_loader = test_loader, 
             output_dir=FLAGS.output_dir+f'/{FLAGS.eval_subdir}/{test_dataset}', 
@@ -201,6 +193,8 @@ def main(argv):
             output_gt=True, 
             compare_with_pseudo=False
           )
+          log_result(gflops, merge_info=merge_info)
+          break 
 
       
 

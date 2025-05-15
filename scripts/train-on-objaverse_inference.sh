@@ -1,5 +1,5 @@
 
-path="$PROJECT_DIR/SplatFormer"
+path="/home/phuc/SplatFormer"
 model_path="$path/train-on-objaverse.pth"
 compress_mode=$1
 merge_rate=$2

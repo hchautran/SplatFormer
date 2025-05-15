@@ -41,5 +41,5 @@ PointTransformerV3Model.additional_info={
     "trace_back": False,
     "single_head_tome": False,
     "downsample": "fps",
-    "downsample_ratio": 0.6,
+    "downsample_ratio": 0.35
 }
