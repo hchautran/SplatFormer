@@ -333,9 +333,8 @@ def training(
               evaluate_input=(step_consider_accum==0)
             ) #when step==0, we evaluate the input
             if dist.get_rank() == 0:
-                print(metrics)
-                wandb.log({f'metrics_testscenes/{test_dataset}/{k}_testviews':v for k,v in metrics.items()}, step=step_consider_accum)
-                metric_str = ' '.join([f'{k}: {v:.4f}' for k,v in metrics.items()])
+                wandb.log({f'metrics_testscenes/{test_dataset}/{k}_testviews':metrics[0][k] for k in list(metrics[0].keys())}, step=step_consider_accum)
+                metric_str = ' '.join([f'{k}: {metrics[0][k]:.4f}' for k in list(metrics[0].keys())])
                 logger.info(f'Test {test_dataset} Step {step_consider_accum}: {metric_str}')
             dist.barrier()
 
@@ -373,7 +372,7 @@ def log_result(metrics, test_dataset, metrics_input, merge_info=None, max_mem=0)
     with open('eval.csv', 'w') as f:
       f.write('dataset,psnr,ssim,lpips,algo,r,max mem\n')
     logger = ProcessSafeLogger(os.path.join(FLAGS.output_dir, FLAGS.eval_subdir, 'eval.log')).get_logger()
-    metric_str = ' '.join([f'{k}: {v:.4f}' for k,v in metrics.items()])
+    metric_str = ' '.join([f'{k}: {metrics[0][k]:.4f}' for k in list(metrics[0].keys())])
     logger.info(f'Test-{test_dataset}: {metric_str}')
     if FLAGS.compare_with_input:
       metric_str = ' '.join([f'{k}: {v:.4f}' for k,v in metrics_input.items()])
@@ -391,6 +390,7 @@ def main(argv):
     gin.parse_config_files_and_bindings(FLAGS.gin_file, FLAGS.gin_param)
     merge_info  = gin.query_parameter("PointTransformerV3Model.additional_info")
     print(merge_info)
+    merge_info['r'] = FLAGS.merge_rate
 
     os.makedirs(FLAGS.output_dir, exist_ok=True)
     set_seed()
@@ -455,6 +455,8 @@ if __name__ == '__main__':
   flags.DEFINE_string('eval_subdir', 'eval_final', 'Eval subdirectory')
   flags.DEFINE_string('wandb_dir', '/cluster/scratch/chenyut/wandb', 'Wandbs Output directory')
   flags.DEFINE_boolean('only_eval', False, 'eval or train')
+  flags.DEFINE_float('merge_rate', 0.5, 'eval or train')
+
   flags.DEFINE_boolean('compare_with_input', False, 'Compare with input') #for evaluation
   flags.DEFINE_boolean('save_viewer', False, 'Save viewer')
   flags.DEFINE_multi_string(

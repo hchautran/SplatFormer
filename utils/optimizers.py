@@ -1,8 +1,27 @@
 import torch, gin 
 from models.feature_predictor import FeaturePredictor
+
+def filter_grads(model, finetuning_param_list):
+    for n, p in model.named_parameters():
+        flag = False
+        for i in range(len(finetuning_param_list)):
+            if finetuning_param_list[i] in n:
+                p.requires_grad = True
+                flag = True
+                break
+        if not flag:
+            p.requires_grad = False
+            print(n)
+    return model
+
+
 @gin.configurable
-def build_3DGSoptimizer(gs_params, lr_dict, optimizer_type, optimizer_params):
+def build_3DGSoptimizer(gs_params, lr_dict, optimizer_type, optimizer_params, finetune_list):
+    
+    if finetune_list is not None:
+        filter_grads(gs_params, finetune_list)
     params_lr = []
+
     for param in gs_params:
         lr = lr_dict.get(param, lr_dict['base'])
         params_lr.append({'params': gs_params[param], 'lr': lr})
@@ -21,7 +40,11 @@ def build_3DGSoptimizer(gs_params, lr_dict, optimizer_type, optimizer_params):
 def build_optimizer(model, 
                     lr_dict: gin.REQUIRED, 
                     optimizer_type: gin.REQUIRED,
-                    optimizer_params):  
+                    optimizer_params,
+
+                ):  
+    finetune_list=['attn.qkv']
+    filter_grads(model, finetune_list)
     params_lr = []
     if type(model) == FeaturePredictor:
         if model.backbone_type != 'empty':

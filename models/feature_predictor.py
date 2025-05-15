@@ -10,6 +10,7 @@ gin.external_configurable(torch.nn.Identity)
 gin.external_configurable(torch.nn.Tanh)
 gin.external_configurable(torch.nn.Sigmoid)
 from typing import List
+from .pcd_downsampling_methods import *
 
 FEATURE2CHANNEL = {
     'means': 3,
@@ -58,6 +59,7 @@ class FeaturePredictor(nn.Module):
         self.output_features_type = output_features_type 
         self.res_feature_activation = res_feature_activation 
         self.input_embed_to_mlp = input_embed_to_mlp
+        self.additional_info = additional_info
 
         if backbone_type == 'SP':
             self.backbone = SparseConvModel(in_channels=in_channels)
@@ -155,12 +157,48 @@ class FeaturePredictor(nn.Module):
         else:
             raise NotImplementedError
 
-        y = self.backbone(model_input)
+        downsample = False
+        if "downsample" in self.additional_info:
+            downsample = True
+            downsample_method = self.additional_info["downsample"]
+            if downsample_method == "voxel":
+                downsample_voxel_size = self.additional_info["voxel_size"]
+                coord, downsample_feat, grid_coord = voxel_downsample(model_input['coord'], model_input['feat'], model_input['grid_coord'], downsample_voxel_size)
+            elif downsample_method == "fps":
+                downsample_ratio = self.additional_info["downsample_ratio"]
+                coord, downsample_feat, grid_coord, assignments = fps_knn_downsample(model_input['coord'], model_input['feat'], model_input['grid_coord'], downsample_ratio)
+            elif downsample_method == "random":
+                downsample_ratio = self.additional_info["downsample_ratio"]
+                coord, downsample_feat, grid_coord, indices = random_downsample(model_input['coord'], model_input['feat'], model_input['grid_coord'], downsample_ratio)
+            else:
+                raise NotImplementedError()
+
+            processed_model_input = {
+                "coord": coord,
+                "feat": downsample_feat,
+                "grid_coord": grid_coord,
+                "offset": torch.tensor([coord.shape[0]]).cuda(),
+            }
+           
+            y = self.backbone(processed_model_input)
+        else:
+            y = self.backbone(model_input)
 
         if self.backbone_type in ['PT']:
+            # breakpoint()
             y = y['feat']
 
-        hidden_features = y
+        if downsample:
+            if downsample_method == "voxel":
+                y = voxel_downsample_map_logits_to_original(model_input["coord"], coord, y, downsample_voxel_size)
+            elif downsample_method == "fps":
+                y = map_to_original_from_centroids(y, assignments)
+            elif downsample_method == "random":
+                y = knn_map_back(y, coord, model_input["coord"])
+                            
+
+
+
         if self.input_feat_to_mlp:
             y = torch.cat([y, feat], dim=1)
     

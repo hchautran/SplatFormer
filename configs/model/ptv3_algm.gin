@@ -26,22 +26,17 @@ FeaturePredictor.input_feat_to_mlp = True
 
 PointTransformerV3Model.enable_flash = False
 PointTransformerV3Model.output_dim = 96
-PointTransformerV3Model.enc_dim = 64
+PointTransformerV3Model.enc_dim = 65
 PointTransformerV3Model.turn_off_bn = False
 PointTransformerV3Model.stride = (1,2,2,2)
 PointTransformerV3Model.embedding_type = 'MLP'
 PointTransformerV3Model.additional_info={
     "replace_attn": None,
-    "tome": "wpatch",
+    "tome": "algm",
     "r": 0.5,
-    "no_rand": False,
-    "low_r": 16,
-    "stride": 10,
     "tome_mlp": True,
     "tome_attention": True,
     "trace_back": False,
     "single_head_tome": False,
-    "margin":0.9,
-    "alpha": 1.0,
     "threshold": 0.9
 }

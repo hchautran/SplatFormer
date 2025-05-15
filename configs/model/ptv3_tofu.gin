@@ -1,5 +1,9 @@
 FeaturePredictor.backbone_type = "PT"
+<<<<<<< HEAD
 FeaturePredictor.sh_degree = 1
+=======
+FeaturePredictor.sh_degree = 1 
+>>>>>>> 502e62c (add baselines)
 FeaturePredictor.output_head_nlayer = 4
 FeaturePredictor.output_head_type='mlp-relu'
 FeaturePredictor.max_scale_normalized = 1e-2 # Help stablize the training
@@ -10,7 +14,7 @@ FeaturePredictor.input_features = ['means','scales', 'opacities', 'quats', 'feat
 FeaturePredictor.output_features = ['means','scales', 'opacities', 'quats', 'features_dc', 'features_rest']
 FeaturePredictor.output_head_width = 128
 FeaturePredictor.zeroinit = True
-
+ 
 
 FeaturePredictor.res_feature_activation = {
     "means":  @Tanh(),
@@ -34,12 +38,19 @@ PointTransformerV3Model.additional_info={
     "replace_attn": None,
     "tome": "tofu",
     "r": 0.9,
+<<<<<<< HEAD
     "stride": 10,
     "tome_mlp": True,
+=======
+>>>>>>> 502e62c (add baselines)
     "tome_attention": True,
     "trace_back": False,
     "single_head_tome": False,
     "margin":0.9,
     "alpha": 1.0,
     "threshold": 0.9
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 502e62c (add baselines)

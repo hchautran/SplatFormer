@@ -31,3 +31,14 @@ PointTransformerV3Model.turn_off_bn = False
 PointTransformerV3Model.stride = (1,2,2,2)
 PointTransformerV3Model.embedding_type = 'MLP'
 PointTransformerV3Model.additional_info=None
+PointTransformerV3Model.additional_info={
+    "replace_attn": None,
+    "tome": "base",
+    "r": 0.0,
+    "replace_attn": None,
+    "tome_mlp": True,
+    "tome_attention": True,
+    "trace_back": False,
+    "single_head_tome": False,
+    "margin":0.9,
+}

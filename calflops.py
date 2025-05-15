@@ -172,6 +172,7 @@ def main(argv):
     gin.parse_config_files_and_bindings(FLAGS.gin_file, FLAGS.gin_param)
     merge_info  = gin.query_parameter("PointTransformerV3Model.additional_info")
     print(merge_info)
+    merge_info['r'] = FLAGS.merge_rate
       
     os.makedirs(FLAGS.output_dir, exist_ok=True)
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -189,7 +190,7 @@ def main(argv):
     model.eval()
     for test_dataset, test_loader in build_testloader().items():
         print(f'Evaluating {test_dataset}...')
-        if len(test_loader) < 5:
+        if len(test_loader) <10 :
           evaluation(
             model, 
             test_loader = test_loader, 
@@ -209,6 +210,7 @@ if __name__ == '__main__':
   flags.DEFINE_string('output_dir', 'output', 'Output directory')
   flags.DEFINE_string('eval_subdir', 'eval_final', 'Eval subdirectory')
   flags.DEFINE_string('wandb_dir', '/cluster/scratch/chenyut/wandb', 'Wandbs Output directory')
+  flags.DEFINE_float('merge_rate', 0.5, 'merge rate')
   flags.DEFINE_boolean('only_eval', False, 'eval or train')
   flags.DEFINE_boolean('compare_with_input', False, 'Compare with input') #for evaluation
   flags.DEFINE_boolean('save_viewer', False, 'Save viewer')

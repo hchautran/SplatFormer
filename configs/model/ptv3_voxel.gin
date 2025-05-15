@@ -32,16 +32,14 @@ PointTransformerV3Model.stride = (1,2,2,2)
 PointTransformerV3Model.embedding_type = 'MLP'
 PointTransformerV3Model.additional_info={
     "replace_attn": None,
-    "tome": "wpatch",
-    "r": 0.5,
+    "tome": "None",
     "no_rand": False,
-    "low_r": 16,
-    "stride": 10,
-    "tome_mlp": True,
+    "r": 0.80,
+    "stride": 5,
+    "tome_mlp": False,
     "tome_attention": True,
     "trace_back": False,
     "single_head_tome": False,
-    "margin":0.9,
-    "alpha": 1.0,
-    "threshold": 0.9
+    "downsample": "voxel",
+    "voxel_size": 0.005,
 }
